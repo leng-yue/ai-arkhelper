@@ -17,7 +17,7 @@ def train():
         "records",
         transform=T.Compose([
             T.ToPILImage(),
-            T.ColorJitter(brightness=.15, contrast=.15),
+            # T.ColorJitter(brightness=.15, contrast=.15),
             T.Resize((256, 256)),
             T.ToTensor(),
             T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])

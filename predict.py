@@ -42,8 +42,9 @@ class Predictor:
         argmax = predict_hm.flatten().argmax()
         row = argmax // predict_hm.shape[2]
         col = argmax % predict_hm.shape[2]
+        score = predict_hm[0, 0, row, col]
 
-        return bool(predict_finished > 0.7), (
+        return bool(predict_finished > 0.5), score, (
             int((col / predict_hm.shape[3]) * raw_w),
             int((row / predict_hm.shape[2]) * raw_h)
         )
