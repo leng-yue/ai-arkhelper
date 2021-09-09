@@ -4,11 +4,6 @@ import math
 
 __all__ = ['mbv3_small', 'MobileNetV3']
 
-PRETRAINED_MODELS = {
-    ("small", 1): "https://lengyue.pub/develop/pretrained_models/mobilenetv3/mobilenetv3-small-55df8e1f.pth",
-    ("small", 0.75): "https://lengyue.pub/develop/pretrained_models/mobilenetv3/mobilenetv3-small-0.75-86c972c3.pth"
-}
-
 
 def _make_divisible(v, divisor, min_value=None):
     """
@@ -128,7 +123,7 @@ class InvertedResidual(nn.Module):
 
 
 class MobileNetV3(nn.Module):
-    def __init__(self, cfgs, mode, width_mult=1., keep=None, run_to=None, pretrained=False):
+    def __init__(self, cfgs, mode, width_mult=1., keep=None, run_to=None, num_layers=3):
         """
         MobileNetV3 构造器
         :param cfgs: 模型配置
@@ -145,7 +140,7 @@ class MobileNetV3(nn.Module):
         assert mode in ['large', 'small']
         # building first layer
         input_channel = _make_divisible(16 * width_mult, 8)
-        layers = [conv_3x3_bn(3, input_channel, 2)]
+        layers = [conv_3x3_bn(num_layers, input_channel, 2)]
         # building inverted residual blocks
         block = InvertedResidual
         for k, t, c, use_se, use_hs, s in self.cfgs:
@@ -153,16 +148,9 @@ class MobileNetV3(nn.Module):
             exp_size = _make_divisible(input_channel * t, 8)
             layers.append(block(input_channel, exp_size, output_channel, k, s, use_se, use_hs))
             input_channel = output_channel
-        if not pretrained:
-            layers = layers[:run_to]
+        layers = layers[:run_to]
         self.features = nn.Sequential(*layers)
-
         self._initialize_weights()
-        if pretrained:  # 虽然我们用不到, 但是如果要加载 pretrained, 我们需要这个
-            assert (mode, width_mult) in PRETRAINED_MODELS
-            pretrained_dict = torch.hub.load_state_dict_from_url(PRETRAINED_MODELS[(mode, width_mult)])
-            state_dict = {k: v for (_, v), k in zip(pretrained_dict.items(), self.state_dict())}
-            self.load_state_dict(state_dict)
 
     def forward(self, x):
         if self.keep is None:

@@ -1,7 +1,9 @@
 import torch
 import numpy as np
 from torch import nn
-from mbv3 import mbv3_small
+
+from base import ACTIONS
+from model.mbv3 import mbv3_small
 
 
 # Conv BatchNorm Activation
@@ -105,14 +107,14 @@ class HeadModule(nn.Module):
 
 
 # CenterNet Model
-class CenterNet(nn.Module):
-    def __init__(self, wide=64, has_ext=True, up_mode="UCBA", pretrained=False, num_classes=1):
-        super(CenterNet, self).__init__()
+class ArkNet(nn.Module):
+    def __init__(self, wide=64, has_ext=True, up_mode="UCBA"):
+        super(ArkNet, self).__init__()
 
         c0, c1, c2 = [16, 24, 48]
         conv3_dim = 96
-        self.backbone = mbv3_small(keep=[1, 3, 8, 10], run_to=11, pretrained=pretrained)
-        self.num_classes = num_classes
+        num_layers = len(ACTIONS) + 3
+        self.backbone = mbv3_small(keep=[1, 3, 8, 10], run_to=11, num_layers=num_layers)
         self.conv3 = CBAModule(conv3_dim, wide, kernel_size=1, stride=1, padding=0, bias=False)  # s32
         self.connect0 = CBAModule(c0, wide, kernel_size=1, stride=1)  # s4
         self.connect1 = CBAModule(c1, wide, kernel_size=1)  # s8
@@ -123,12 +125,13 @@ class CenterNet(nn.Module):
         self.up2 = UpSampleModule(wide, wide, kernel_size=2, stride=2, mode=up_mode)  # s4
         self.detect = DetectModule(wide)
 
-        self.stop = nn.Sequential(
+        self.finished = nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)),
             nn.Flatten(),
-            nn.Linear(wide, 1)
+            nn.Linear(wide, 1),
+            nn.Sigmoid()
         )
-        self.center = HeadModule(wide, num_classes, has_ext=has_ext)
+        self.center = HeadModule(wide, 1, has_ext=has_ext)
         self.box = HeadModule(wide, 4, has_ext=has_ext)
 
         self.init_weights()
@@ -149,10 +152,10 @@ class CenterNet(nn.Module):
         s4 = self.up2(s8) + self.connect0(s4)
         x = self.detect(s4)
 
-        stop = self.stop(x)
+        finished = self.finished(x)
         center = self.center(x)
         box = self.box(x)
 
         center = center.sigmoid()
         box = torch.exp(box)
-        return stop, center, box
+        return finished, center, box
