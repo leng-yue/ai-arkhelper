@@ -43,7 +43,7 @@ class Predictor:
         col = argmax % predict_hm.shape[3]
         score = predict_hm[0, 0, row, col]
 
-        return predict_finished[0] == 1, score, (
+        return bool(predict_finished[0] == 1), float(score), (
             int((col / predict_hm.shape[3]) * raw_w),
             int((row / predict_hm.shape[2]) * raw_h)
         )

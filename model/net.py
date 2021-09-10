@@ -3,7 +3,7 @@ import numpy as np
 from torch import nn
 
 from base import ACTIONS
-from model.mbv3 import mbv3_small
+from efficientnet_pytorch import EfficientNet
 
 
 # Conv BatchNorm Activation
@@ -111,12 +111,13 @@ class ArkNet(nn.Module):
     def __init__(self, wide=64, has_ext=True, up_mode="UCBA"):
         super(ArkNet, self).__init__()
 
-        c0, c1, c2 = [16, 24, 48]
-        conv3_dim = 96
         num_layers = len(ACTIONS) + 3
-        self.backbone = mbv3_small(keep=[1, 3, 8, 10], run_to=11, num_layers=num_layers)
+        c0, c1, c2 = [16, 24, 40]
+        conv3_dim = 112
+        self.backbone = EfficientNet.from_pretrained('efficientnet-b0', in_channels=num_layers)
+
         self.conv3 = CBAModule(conv3_dim, wide, kernel_size=1, stride=1, padding=0, bias=False)  # s32
-        self.connect0 = CBAModule(c0, wide, kernel_size=1, stride=1)  # s4
+        self.connect0 = CBAModule(c0, wide, kernel_size=1, stride=2)  # s4
         self.connect1 = CBAModule(c1, wide, kernel_size=1)  # s8
         self.connect2 = CBAModule(c2, wide, kernel_size=1)  # s16
 
@@ -126,10 +127,9 @@ class ArkNet(nn.Module):
         self.detect = DetectModule(wide)
 
         self.finished = nn.Sequential(
-            CBAModule(conv3_dim, 256, kernel_size=1, stride=1),
             nn.AdaptiveAvgPool2d((1, 1)),
             nn.Flatten(),
-            nn.Linear(256, 2)
+            nn.Linear(1280, 2)
         )
         self.center = HeadModule(wide, 1, has_ext=has_ext)
         self.box = HeadModule(wide, 4, has_ext=has_ext)
@@ -145,14 +145,14 @@ class ArkNet(nn.Module):
         self.box.init_normal(0.001, 0)
 
     def forward(self, x):
-        s4, s8, s16, s32 = self.backbone(x)
-        finished = self.finished(s32)
+        s16, s24, s40, s112, _, feature = self.backbone.extract_endpoints(x).values()
+        finished = self.finished(feature)
 
-        s32 = self.conv3(s32)
-        s16 = self.up0(s32) + self.connect2(s16)
-        s8 = self.up1(s16) + self.connect1(s8)
-        s4 = self.up2(s8) + self.connect0(s4)
-        x = self.detect(s4)
+        s112 = self.conv3(s112)
+        s40 = self.up0(s112) + self.connect2(s40)
+        s24 = self.up1(s40) + self.connect1(s24)
+        s16 = s24 + self.connect0(s16)
+        x = self.detect(s16)
 
         center = self.center(x)
         box = self.box(x)
