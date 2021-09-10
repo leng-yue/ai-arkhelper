@@ -15,7 +15,7 @@ class Predictor:
 
         self.transform = T.Compose([
             T.ToPILImage(),
-            T.Resize((256, 256)),
+            T.Resize((512, 256)),
             T.ToTensor(),
             T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
@@ -37,8 +37,8 @@ class Predictor:
         predict_finished = predict_finished.squeeze(1)
 
         argmax = predict_hm.flatten().argmax()
-        row = argmax // predict_hm.shape[2]
-        col = argmax % predict_hm.shape[2]
+        row = argmax // predict_hm.shape[3]
+        col = argmax % predict_hm.shape[3]
         score = predict_hm[0, 0, row, col]
 
         return bool(predict_finished > 0.5), score, (
