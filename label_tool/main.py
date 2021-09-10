@@ -152,7 +152,6 @@ class MainWindow(QMainWindow):
             self.setWindowTitle(f"Serial: {self.client.device_name}, Finished: {finished}")
             if finished:
                 self.ui.check_execute.setChecked(False)
-                ctypes.windll.user32.MessageBoxW(0, f"任务: {items[0].text()} 已完成", "完成", 0)
 
             if score > 0.2:
                 cv2.circle(frame, (x, y), 5, (0, 0, 255), -1)
