@@ -4,6 +4,11 @@ import math
 
 __all__ = ['mbv3_small', 'MobileNetV3']
 
+PRETRAINED_MODELS = {
+    ("small", 1): "https://lengyue.pub/develop/pretrained_models/mobilenetv3/mobilenetv3-small-55df8e1f.pth",
+    ("small", 0.75): "https://lengyue.pub/develop/pretrained_models/mobilenetv3/mobilenetv3-small-0.75-86c972c3.pth"
+}
+
 
 def _make_divisible(v, divisor, min_value=None):
     """
@@ -137,7 +142,8 @@ class MobileNetV3(nn.Module):
         self.keep = keep
         self.cfgs = cfgs
         self.run_to = run_to
-        assert mode in ['large', 'small']
+        assert mode in ['small']
+
         # building first layer
         input_channel = _make_divisible(16 * width_mult, 8)
         layers = [conv_3x3_bn(num_layers, input_channel, 2)]
@@ -148,9 +154,15 @@ class MobileNetV3(nn.Module):
             exp_size = _make_divisible(input_channel * t, 8)
             layers.append(block(input_channel, exp_size, output_channel, k, s, use_se, use_hs))
             input_channel = output_channel
-        layers = layers[:run_to]
+
         self.features = nn.Sequential(*layers)
         self._initialize_weights()
+
+        assert (mode, width_mult) in PRETRAINED_MODELS
+        pretrained_dict = torch.hub.load_state_dict_from_url(PRETRAINED_MODELS[(mode, width_mult)])
+        remove = ["features.0.0.weight"]
+        state_dict = {k: v for (_, v), k in zip(pretrained_dict.items(), self.state_dict()) if k not in remove}
+        self.load_state_dict(state_dict, strict=False)
 
     def forward(self, x):
         if self.keep is None:
@@ -175,7 +187,6 @@ class MobileNetV3(nn.Module):
                 m.weight.data.fill_(1)
                 m.bias.data.zero_()
             elif isinstance(m, nn.Linear):
-                n = m.weight.size(1)
                 m.weight.data.normal_(0, 0.01)
                 m.bias.data.zero_()
 

@@ -18,7 +18,7 @@ def train():
         transform=T.Compose([
             T.ToPILImage(),
             # T.ColorJitter(brightness=.15, contrast=.15),
-            T.Resize((256, 256)),
+            T.Resize((512, 256)),
             T.ToTensor(),
             T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
@@ -28,7 +28,7 @@ def train():
         "records",
         transform=T.Compose([
             T.ToPILImage(),
-            T.Resize((256, 256)),
+            T.Resize((512, 256)),
             T.ToTensor(),
             T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
@@ -77,13 +77,13 @@ def train():
             center, bias = torch.split(regs_wh, 2, 1)
             ind_masks_center, ind_masks_bias = torch.split(ind_masks, 2, 1)
 
-            # center_loss = reg_loss(predict_center, center, ind_masks_center)
-            # bias_loss = reg_loss(predict_bias, bias, ind_masks_bias)
+            center_loss = reg_loss(predict_center, center, ind_masks_center)
+            bias_loss = reg_loss(predict_bias, bias, ind_masks_bias)
             heatmap_loss = focal_loss(predict_hm, hm)
             finish_loss = l1_loss(predict_finished, finished)
 
             # 加权计算
-            loss = heatmap_loss + finish_loss  # center_loss * 0.1 + bias_loss +
+            loss = center_loss * 0.1 + bias_loss + heatmap_loss + finish_loss
             losses.append(float(loss))
 
             # 快乐三步曲
@@ -116,13 +116,13 @@ def train():
             center, bias = torch.split(regs_wh, 2, 1)
             ind_masks_center, ind_masks_bias = torch.split(ind_masks, 2, 1)
 
-            # center_loss = reg_loss(predict_center, center, ind_masks_center)
-            # bias_loss = reg_loss(predict_bias, bias, ind_masks_bias)
+            center_loss = reg_loss(predict_center, center, ind_masks_center)
+            bias_loss = reg_loss(predict_bias, bias, ind_masks_bias)
             heatmap_loss = focal_loss(predict_hm, hm)
             finish_loss = l1_loss(predict_finished, finished)
 
             # 加权计算
-            loss = heatmap_loss + finish_loss  # center_loss * 0.1 + bias_loss +
+            loss = center_loss * 0.1 + bias_loss + heatmap_loss + finish_loss
             losses.append(float(loss))
 
             # 计算状态正确率

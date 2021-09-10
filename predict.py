@@ -1,9 +1,7 @@
-import cv2
 import numpy as np
 import torch
 
 from base import ACTIONS
-from model.miou import centernet_to_standard
 from model.net import ArkNet
 import torchvision.transforms as T
 
@@ -24,7 +22,6 @@ class Predictor:
 
     def predict(self, image, action):
         action_idx = ACTIONS.index(action)
-        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         raw_h, raw_w = image.shape[:2]
         image = self.transform(image)  # 1, H, W
         new_h, new_w = image.shape[1:]
