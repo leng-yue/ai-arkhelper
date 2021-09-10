@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from torch.nn.functional import avg_pool2d
 
 from base import ACTIONS
 from model.net import ArkNet
@@ -15,7 +16,7 @@ class Predictor:
 
         self.transform = T.Compose([
             T.ToPILImage(),
-            T.Resize((512, 256)),
+            T.Resize((256, 256)),
             T.ToTensor(),
             T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
@@ -34,14 +35,15 @@ class Predictor:
         # 预测
         images = torch.FloatTensor(image).unsqueeze(0).cuda()
         predict_finished, predict_hm, predict_regs_wh = self.model(images)
-        predict_finished = predict_finished.squeeze(1)
+        predict_finished = predict_finished.argmax(1)
+        # predict_hm = avg_pool2d(predict_hm, 3, 1, 1)
 
         argmax = predict_hm.flatten().argmax()
         row = argmax // predict_hm.shape[3]
         col = argmax % predict_hm.shape[3]
         score = predict_hm[0, 0, row, col]
 
-        return bool(predict_finished > 0.5), score, (
+        return predict_finished[0] == 1, score, (
             int((col / predict_hm.shape[3]) * raw_w),
             int((row / predict_hm.shape[2]) * raw_h)
         )

@@ -1,6 +1,6 @@
 import torch
 import torchvision.transforms as T
-from torch.nn import SmoothL1Loss
+from torch.nn import SmoothL1Loss, CrossEntropyLoss
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 
@@ -18,7 +18,7 @@ def train():
         transform=T.Compose([
             T.ToPILImage(),
             # T.ColorJitter(brightness=.15, contrast=.15),
-            T.Resize((512, 256)),
+            T.Resize((256, 256)),
             T.ToTensor(),
             T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
@@ -28,7 +28,7 @@ def train():
         "records",
         transform=T.Compose([
             T.ToPILImage(),
-            T.Resize((512, 256)),
+            T.Resize((256, 256)),
             T.ToTensor(),
             T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
@@ -58,7 +58,7 @@ def train():
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3, mode='min')
     reg_loss = RegL1Loss()
     focal_loss = FocalLoss()
-    l1_loss = SmoothL1Loss()
+    cross_entropy_loss = CrossEntropyLoss()
     min_loss = 9999
 
     for epoch in range(0, 1000):
@@ -68,7 +68,7 @@ def train():
         losses = []
 
         for image, finished, hm, regs_wh, ind_masks in bar:
-            image, finished, hm = image.to(DEVICE), finished.type(torch.float32).to(DEVICE), hm.to(DEVICE)
+            image, finished, hm = image.to(DEVICE), finished.to(DEVICE), hm.to(DEVICE)
             regs_wh, ind_masks = regs_wh.to(DEVICE), ind_masks.to(DEVICE)
 
             predict_finished, predict_hm, predict_regs_wh = model(image)
@@ -80,7 +80,7 @@ def train():
             center_loss = reg_loss(predict_center, center, ind_masks_center)
             bias_loss = reg_loss(predict_bias, bias, ind_masks_bias)
             heatmap_loss = focal_loss(predict_hm, hm)
-            finish_loss = l1_loss(predict_finished, finished)
+            finish_loss = cross_entropy_loss(predict_finished, finished)
 
             # 加权计算
             loss = center_loss * 0.1 + bias_loss + heatmap_loss + finish_loss
@@ -119,14 +119,14 @@ def train():
             center_loss = reg_loss(predict_center, center, ind_masks_center)
             bias_loss = reg_loss(predict_bias, bias, ind_masks_bias)
             heatmap_loss = focal_loss(predict_hm, hm)
-            finish_loss = l1_loss(predict_finished, finished)
+            finish_loss = cross_entropy_loss(predict_finished, finished)
 
             # 加权计算
             loss = center_loss * 0.1 + bias_loss + heatmap_loss + finish_loss
             losses.append(float(loss))
 
             # 计算状态正确率
-            finished_acc = (predict_finished.round() == finished).sum() / len(finished)
+            finished_acc = (predict_finished.argmax(1) == finished).sum() / len(finished)
 
             lr = optimizer.param_groups[0]['lr']
             bar.set_description("Valid epoch %d, loss %.4f, avg loss %.4f, Finished Acc %.4f, lr %.6f" % (

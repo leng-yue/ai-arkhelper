@@ -126,10 +126,10 @@ class ArkNet(nn.Module):
         self.detect = DetectModule(wide)
 
         self.finished = nn.Sequential(
+            CBAModule(conv3_dim, 256, kernel_size=1, stride=1),
             nn.AdaptiveAvgPool2d((1, 1)),
             nn.Flatten(),
-            nn.Linear(wide, 1),
-            nn.Sigmoid()
+            nn.Linear(256, 2)
         )
         self.center = HeadModule(wide, 1, has_ext=has_ext)
         self.box = HeadModule(wide, 4, has_ext=has_ext)
@@ -146,13 +146,14 @@ class ArkNet(nn.Module):
 
     def forward(self, x):
         s4, s8, s16, s32 = self.backbone(x)
+        finished = self.finished(s32)
+
         s32 = self.conv3(s32)
         s16 = self.up0(s32) + self.connect2(s16)
         s8 = self.up1(s16) + self.connect1(s8)
         s4 = self.up2(s8) + self.connect0(s4)
         x = self.detect(s4)
 
-        finished = self.finished(x)
         center = self.center(x)
         box = self.box(x)
 
