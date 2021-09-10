@@ -70,6 +70,11 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout.addItem(self.horizontalSpacer)
 
+        self.check_execute = QCheckBox(self.centralwidget)
+        self.check_execute.setObjectName(u"check_execute")
+
+        self.horizontalLayout.addWidget(self.check_execute)
+
         self.button_home = QPushButton(self.centralwidget)
         self.button_home.setObjectName(u"button_home")
 
@@ -80,15 +85,15 @@ class Ui_MainWindow(object):
 
         self.horizontalLayout.addWidget(self.button_back)
 
-        self.button_task_finished = QPushButton(self.centralwidget)
-        self.button_task_finished.setObjectName(u"button_task_finished")
+        self.check_task_finished = QCheckBox(self.centralwidget)
+        self.check_task_finished.setObjectName(u"check_task_finished")
 
-        self.horizontalLayout.addWidget(self.button_task_finished)
+        self.horizontalLayout.addWidget(self.check_task_finished)
 
-        self.button_task_not_finished = QPushButton(self.centralwidget)
-        self.button_task_not_finished.setObjectName(u"button_task_not_finished")
+        self.button_save = QPushButton(self.centralwidget)
+        self.button_save.setObjectName(u"button_save")
 
-        self.horizontalLayout.addWidget(self.button_task_not_finished)
+        self.horizontalLayout.addWidget(self.button_save)
 
         self.horizontalSpacer_2 = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
 
@@ -118,9 +123,10 @@ class Ui_MainWindow(object):
         MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"MainWindow", None))
         self.label_2.setText(QCoreApplication.translate("MainWindow", u"Device", None))
         self.label.setText(QCoreApplication.translate("MainWindow", u"<html><head/><body><p><span style=\" font-size:20pt;\">Loading</span></p></body></html>", None))
+        self.check_execute.setText(QCoreApplication.translate("MainWindow", u"\u6267\u884c\u64cd\u4f5c", None))
         self.button_home.setText(QCoreApplication.translate("MainWindow", u"HOME", None))
         self.button_back.setText(QCoreApplication.translate("MainWindow", u"BACK", None))
-        self.button_task_finished.setText(QCoreApplication.translate("MainWindow", u"\u4efb\u52a1\u5df2\u5b8c\u6210", None))
-        self.button_task_not_finished.setText(QCoreApplication.translate("MainWindow", u"\u4efb\u52a1\u8fdb\u884c\u4e2d", None))
+        self.check_task_finished.setText(QCoreApplication.translate("MainWindow", u"\u5df2\u5b8c\u6210", None))
+        self.button_save.setText(QCoreApplication.translate("MainWindow", u"\u76f4\u63a5\u4fdd\u5b58", None))
     # retranslateUi
 

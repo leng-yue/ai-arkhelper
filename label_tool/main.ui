@@ -88,7 +88,7 @@
        </layout>
       </item>
       <item>
-       <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,0,0,0,0">
+       <layout class="QHBoxLayout" name="horizontalLayout" stretch="0,0,0,0,0,0,0">
         <property name="spacing">
          <number>6</number>
         </property>
@@ -109,6 +109,13 @@
          </spacer>
         </item>
         <item>
+         <widget class="QCheckBox" name="check_execute">
+          <property name="text">
+           <string>执行操作</string>
+          </property>
+         </widget>
+        </item>
+        <item>
          <widget class="QPushButton" name="button_home">
           <property name="text">
            <string>HOME</string>
@@ -123,16 +130,16 @@
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="button_task_finished">
+         <widget class="QCheckBox" name="check_task_finished">
           <property name="text">
-           <string>任务已完成</string>
+           <string>已完成</string>
           </property>
          </widget>
         </item>
         <item>
-         <widget class="QPushButton" name="button_task_not_finished">
+         <widget class="QPushButton" name="button_save">
           <property name="text">
-           <string>任务进行中</string>
+           <string>直接保存</string>
           </property>
          </widget>
         </item>

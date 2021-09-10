@@ -1,4 +1,5 @@
 import ctypes
+import time
 from hashlib import md5
 from pathlib import Path
 from typing import Optional
@@ -12,6 +13,8 @@ from PySide6.QtWidgets import QApplication, QMainWindow, QMessageBox
 
 import scrcpy
 
+from base import ACTIONS
+from predict import Predictor
 from ui_main import Ui_MainWindow
 
 app = QApplication([])
@@ -32,7 +35,8 @@ class MainWindow(QMainWindow):
 
         # Setup client
         self.client = scrcpy.Client(
-            max_width=max_width, device=self.device
+            max_width=max_width, device=self.device, max_fps=10,
+            lock_screen_orientation=scrcpy.LOCK_SCREEN_ORIENTATION_0
         )
         self.client.add_listener(scrcpy.EVENT_INIT, self.on_init)
         self.client.add_listener(scrcpy.EVENT_FRAME, self.on_frame)
@@ -40,22 +44,11 @@ class MainWindow(QMainWindow):
         # Bind controllers
         self.ui.button_home.clicked.connect(self.on_click_home)
         self.ui.button_back.clicked.connect(self.on_click_back)
-        self.ui.button_task_finished.clicked.connect(self.on_click_task_finished(True))
-        self.ui.button_task_not_finished.clicked.connect(self.on_click_task_finished(False))
+        self.ui.button_save.clicked.connect(self.on_click_save)
 
         # Bind config
         self.ui.combo_device.currentTextChanged.connect(self.choose_device)
-        self.ui.list_task_types.addItems([
-            "登录",
-            "收取邮件",
-            "剿灭",
-            "常见关卡",
-            "自动基建",
-            "收取任务",
-            "访问好友",
-            "返回主页",
-            "购物"
-        ])
+        self.ui.list_task_types.addItems(ACTIONS)
 
         # Bind mouse event
         self.ui.label.mousePressEvent = self.on_mouse_event(scrcpy.ACTION_DOWN)
@@ -65,6 +58,8 @@ class MainWindow(QMainWindow):
         # Label tool
         self.cropping: Optional[tuple[tuple[int, int], tuple[int, int]]] = None
         self.frame: Optional[np.ndarray] = None
+        self.predictor = Predictor()
+        self.last_click = time.time()
 
     def choose_device(self, device):
         if device not in self.devices:
@@ -94,6 +89,10 @@ class MainWindow(QMainWindow):
         self.client.control.back_or_turn_screen_on(scrcpy.ACTION_DOWN)
         self.client.control.back_or_turn_screen_on(scrcpy.ACTION_UP)
 
+    def on_click_save(self):
+        flag = "已完成" if self.ui.check_task_finished.isChecked() else "未完成"
+        self.__save_img(flag)
+
     def __save_img(self, filename: str):
         items = self.ui.list_task_types.selectedItems()
         if len(items) != 1:
@@ -107,9 +106,6 @@ class MainWindow(QMainWindow):
         path = base_path / f"{md5(result).hexdigest()}_{filename}.jpg"
         path.write_bytes(result)
         print("已写入图片", path)
-
-    def on_click_task_finished(self, val):
-        return lambda: self.__save_img("true" if val else "false")
 
     def on_mouse_event(self, action=scrcpy.ACTION_DOWN):
         def handler(evt: QMouseEvent):
@@ -126,13 +122,15 @@ class MainWindow(QMainWindow):
 
                 # 保存图片
                 x0, y0, x1, y1 = cropping[0] + cropping[1]
-                if abs(x1 - x0) > 20 and abs(y1 - y0) > 20:
-                    box = ','.join(map(str, cropping[0] + cropping[1]))
-                    self.__save_img(f"false_{box}")
+                if abs(x1 - x0) < 20 or abs(y1 - y0) < 20:
+                    # 点击
+                    self.client.control.touch((x0 + x1) / 2, (y0 + y1) / 2, scrcpy.ACTION_DOWN)
+                    self.client.control.touch((x0 + x1) / 2, (y0 + y1) / 2, scrcpy.ACTION_UP)
+                    return
 
-                # 点击
-                self.client.control.touch((x0 + x1) / 2, (y0 + y1) / 2, scrcpy.ACTION_DOWN)
-                self.client.control.touch((x0 + x1) / 2, (y0 + y1) / 2, scrcpy.ACTION_UP)
+                flag = "已完成" if self.ui.check_task_finished.isChecked() else "未完成"
+                box = ','.join(map(str, cropping[0] + cropping[1]))
+                self.__save_img(f"{flag}_{box}")
 
         return handler
 
@@ -147,6 +145,22 @@ class MainWindow(QMainWindow):
         self.frame = frame.copy()
         if self.cropping is not None:
             cv2.rectangle(frame, self.cropping[0], self.cropping[1], (0, 0, 255), 2)
+
+        items = self.ui.list_task_types.selectedItems()
+        if len(items) == 1:
+            finished, score, (x, y) = self.predictor.predict(self.frame, items[0].text())
+            self.setWindowTitle(f"Serial: {self.client.device_name}, Finished: {finished}")
+            if finished:
+                self.ui.check_execute.setChecked(False)
+                ctypes.windll.user32.MessageBoxW(0, f"任务: {items[0].text()} 已完成", "完成", 0)
+
+            if score > 0.2:
+                cv2.circle(frame, (x, y), 5, (0, 0, 255), -1)
+                if self.ui.check_execute.isChecked() and self.last_click < time.time() - 0.5:
+                    self.last_click = time.time()
+                    print("CLICKED", self.last_click)
+                    self.client.control.touch(x, y, scrcpy.ACTION_DOWN)
+                    self.client.control.touch(x, y, scrcpy.ACTION_UP)
 
         image = QImage(
             frame,
