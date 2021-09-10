@@ -5,8 +5,7 @@ import math
 __all__ = ['mbv3_small', 'MobileNetV3']
 
 PRETRAINED_MODELS = {
-    ("small", 1): "https://lengyue.pub/develop/pretrained_models/mobilenetv3/mobilenetv3-small-55df8e1f.pth",
-    ("small", 0.75): "https://lengyue.pub/develop/pretrained_models/mobilenetv3/mobilenetv3-small-0.75-86c972c3.pth"
+    ("small", 1): "https://drive.lengyue.me/weights/mobilenetv3-small-55df8e1f.pth"
 }
 
 
