@@ -41,8 +41,8 @@ def train():
     # cv2.waitKey()
     # exit()
 
-    train_loader = DataLoader(dataset=train_set, batch_size=4, shuffle=True, num_workers=2)
-    valid_loader = DataLoader(dataset=valid_set, batch_size=2, shuffle=True, num_workers=1)
+    train_loader = DataLoader(dataset=train_set, batch_size=8, shuffle=True, num_workers=2)
+    valid_loader = DataLoader(dataset=valid_set, batch_size=4, shuffle=False, num_workers=1)
 
     # label_map = train_set.get_label_map()
     # print(len(label_map), label_map)
@@ -77,13 +77,13 @@ def train():
             center, bias = torch.split(regs_wh, 2, 1)
             ind_masks_center, ind_masks_bias = torch.split(ind_masks, 2, 1)
 
-            center_loss = reg_loss(predict_center, center, ind_masks_center)
-            bias_loss = reg_loss(predict_bias, bias, ind_masks_bias)
+            # center_loss = reg_loss(predict_center, center, ind_masks_center)
+            # bias_loss = reg_loss(predict_bias, bias, ind_masks_bias)
             heatmap_loss = focal_loss(predict_hm, hm)
             finish_loss = l1_loss(predict_finished, finished)
 
             # 加权计算
-            loss = center_loss * 0.1 + bias_loss + heatmap_loss + finish_loss
+            loss = heatmap_loss + finish_loss  # center_loss * 0.1 + bias_loss +
             losses.append(float(loss))
 
             # 快乐三步曲
@@ -105,7 +105,6 @@ def train():
         model.eval()
         bar = tqdm(valid_loader, 'Validating', ascii=True)
         losses = []
-        ious = []
 
         for image, finished, hm, regs_wh, ind_masks in bar:
             image, finished, hm = image.to(DEVICE), finished.to(DEVICE), hm.to(DEVICE)
@@ -117,26 +116,21 @@ def train():
             center, bias = torch.split(regs_wh, 2, 1)
             ind_masks_center, ind_masks_bias = torch.split(ind_masks, 2, 1)
 
-            center_loss = reg_loss(predict_center, center, ind_masks_center)
-            bias_loss = reg_loss(predict_bias, bias, ind_masks_bias)
+            # center_loss = reg_loss(predict_center, center, ind_masks_center)
+            # bias_loss = reg_loss(predict_bias, bias, ind_masks_bias)
             heatmap_loss = focal_loss(predict_hm, hm)
             finish_loss = l1_loss(predict_finished, finished)
 
             # 加权计算
-            loss = center_loss * 0.1 + bias_loss + heatmap_loss + finish_loss
+            loss = heatmap_loss + finish_loss  # center_loss * 0.1 + bias_loss +
             losses.append(float(loss))
-
-            for i in range(predict_hm.shape[0]):
-                output = centernet_to_standard(predict_hm[i], predict_regs_wh[i])
-                target = centernet_to_standard(hm[i], regs_wh[i])
-                ious.append(mean_iou(output, target))
 
             # 计算状态正确率
             finished_acc = (predict_finished.round() == finished).sum() / len(finished)
 
             lr = optimizer.param_groups[0]['lr']
-            bar.set_description("Valid epoch %d, loss %.4f, avg loss %.4f, mIoU %.4f, Finished Acc %.4f, lr %.6f" % (
-                epoch, float(loss), sum(losses) / len(losses), sum(ious) / len(ious), finished_acc, lr
+            bar.set_description("Valid epoch %d, loss %.4f, avg loss %.4f, Finished Acc %.4f, lr %.6f" % (
+                epoch, float(loss), sum(losses) / len(losses), finished_acc, lr
             ))
 
             # predict_hm_slice = predict_hm[0].cpu().squeeze().detach().numpy()

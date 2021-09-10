@@ -54,6 +54,9 @@ def gaussian_radius(det_size, min_overlap=0.7):
     a3 = 4 * min_overlap
     b3 = -2 * min_overlap * (height + width)
     c3 = (min_overlap - 1) * width * height
+    if b3 ** 2 - 4 * a3 * c3 < 0:
+        raise Exception("Image bounding box error")
+
     sq3 = np.sqrt(b3 ** 2 - 4 * a3 * c3)
     r3 = (b3 + sq3) / 2
 
@@ -117,7 +120,7 @@ class ArkDataset(Dataset):
         except Exception as e:
             import traceback
             traceback.print_exc()
-            print(f'Fail to load item {item}, {str(e)}')
+            print(f'Fail to load item {item}: {self.images[item]}, {str(e)}')
 
     def _get_item(self, item: int):
         path = self.images[item]
