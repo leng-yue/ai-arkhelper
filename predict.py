@@ -21,15 +21,15 @@ class Predictor:
             T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
         ])
 
-    def predict(self, image, action):
-        action_idx = TASKS.index(action)
+    def predict(self, image, task):
+        task_idx = TASKS.index(task)
         raw_h, raw_w = image.shape[:2]
         image = self.transform(image)  # 1, H, W
         new_h, new_w = image.shape[1:]
 
         # OneHot 编码操作空间
         actions = np.zeros((len(TASKS), new_h, new_w))
-        actions[action_idx] = 1
+        actions[task_idx] = 1
         image = np.concatenate([image, actions]).astype(np.float32)
 
         # 预测
