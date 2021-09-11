@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from torch import nn
 
-from definition import ACTIONS
+from definition import TASKS, ACTIONS
 from efficientnet_pytorch import EfficientNet
 
 
@@ -111,7 +111,7 @@ class ArkNet(nn.Module):
     def __init__(self, wide=64, has_ext=True, up_mode="UCBA"):
         super(ArkNet, self).__init__()
 
-        num_layers = len(ACTIONS) + 3
+        num_layers = len(TASKS) + 3
         c0, c1, c2 = [16, 24, 40]
         conv3_dim = 112
         self.backbone = EfficientNet.from_pretrained('efficientnet-b0', in_channels=num_layers)
@@ -129,7 +129,7 @@ class ArkNet(nn.Module):
         self.finished = nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)),
             nn.Flatten(),
-            nn.Linear(1280, 2)
+            nn.Linear(1280, len(ACTIONS))
         )
         self.center = HeadModule(wide, 1, has_ext=has_ext)
         self.box = HeadModule(wide, 4, has_ext=has_ext)

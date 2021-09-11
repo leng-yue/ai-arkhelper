@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 from torch.utils.data import Dataset
 from torchvision import transforms as T
-from definition import ACTIONS
+from definition import TASKS, ACTIONS
 
 
 def gaussian_2d(shape, sigma=1):
@@ -128,18 +128,18 @@ class ArkDataset(Dataset):
         image = cv2.imdecode(im, cv2.IMREAD_COLOR)
 
         # 解析信息
-        temp = path.name.replace(".jpg", "").split("_")[1:]
-        finished = 1 if temp[0] == "已完成" else 0
-        action_idx = ACTIONS.index(path.parent.name)
-        boxes = temp[1:]
+        temp = path.name.replace(".jpg", "").split("_")[:-1]
+        action_idx = ACTIONS.index(temp[1])
+        task_idx = TASKS.index(temp[0])
+        boxes = temp[21:]
 
         raw_h, raw_w = image.shape[:2]
         image = self.transform(image)  # 1, H, W
         new_h, new_w = image.shape[1:]
 
         # OneHot 编码操作空间
-        actions = np.zeros((len(ACTIONS), new_h, new_w))
-        actions[action_idx] = 1
+        actions = np.zeros((len(TASKS), new_h, new_w))
+        actions[task_idx] = 1
         image = np.concatenate([image, actions]).astype(np.float32)
 
         # 计算生成 HeatMap
@@ -179,4 +179,4 @@ class ArkDataset(Dataset):
                     ind_masks[:, cy, cx] = 1
                     regs_wh[:, cy, cx] = [cx - real_cx, cy - real_cy, w, h]
 
-        return image, finished, hm, regs_wh, ind_masks
+        return image, action_idx, hm, regs_wh, ind_masks

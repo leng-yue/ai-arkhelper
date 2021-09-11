@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch.nn.functional import avg_pool2d
 
-from definition import ACTIONS
+from definition import TASKS, ACTIONS, Actions
 from model.net import ArkNet
 import torchvision.transforms as T
 
@@ -22,13 +22,13 @@ class Predictor:
         ])
 
     def predict(self, image, action):
-        action_idx = ACTIONS.index(action)
+        action_idx = TASKS.index(action)
         raw_h, raw_w = image.shape[:2]
         image = self.transform(image)  # 1, H, W
         new_h, new_w = image.shape[1:]
 
         # OneHot 编码操作空间
-        actions = np.zeros((len(ACTIONS), new_h, new_w))
+        actions = np.zeros((len(TASKS), new_h, new_w))
         actions[action_idx] = 1
         image = np.concatenate([image, actions]).astype(np.float32)
 
@@ -43,7 +43,7 @@ class Predictor:
         col = argmax % predict_hm.shape[3]
         score = predict_hm[0, 0, row, col]
 
-        return bool(predict_finished[0] == 1), float(score), (
+        return Actions(ACTIONS[predict_finished[0]]), float(score), (
             int((col / predict_hm.shape[3]) * raw_w),
             int((row / predict_hm.shape[2]) * raw_h)
         )

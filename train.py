@@ -5,6 +5,7 @@ from tqdm import tqdm
 import imgaug.augmenters as iaa
 from torch.utils.data import DataLoader
 
+from definition import Actions, ACTIONS
 from model.dataset import ArkDataset
 from model.miou import centernet_to_standard, mean_iou
 from model.net import ArkNet
@@ -49,8 +50,8 @@ def train():
     #     cv2.waitKey(1000)
     # exit()
 
-    train_loader = DataLoader(dataset=train_set, batch_size=8, shuffle=True, num_workers=2)
-    valid_loader = DataLoader(dataset=valid_set, batch_size=4, shuffle=False, num_workers=1)
+    train_loader = DataLoader(dataset=train_set, batch_size=8, shuffle=True, num_workers=8)
+    valid_loader = DataLoader(dataset=valid_set, batch_size=4, shuffle=False, num_workers=4)
 
     # label_map = train_set.get_label_map()
     # print(len(label_map), label_map)
@@ -75,23 +76,35 @@ def train():
         bar = tqdm(train_loader, 'Training', ascii=True)
         losses = []
 
-        for image, finished, hm, regs_wh, ind_masks in bar:
-            image, finished, hm = image.to(DEVICE), finished.to(DEVICE), hm.to(DEVICE)
+        for image, result, hm, regs_wh, ind_masks in bar:
+            image, result, hm = image.to(DEVICE), result.to(DEVICE), hm.to(DEVICE)
             regs_wh, ind_masks = regs_wh.to(DEVICE), ind_masks.to(DEVICE)
 
-            predict_finished, predict_hm, predict_regs_wh = model(image)
-            predict_finished = predict_finished.squeeze(1)
-            predict_center, predict_bias = torch.split(predict_regs_wh, 2, 1)
-            center, bias = torch.split(regs_wh, 2, 1)
-            ind_masks_center, ind_masks_bias = torch.split(ind_masks, 2, 1)
+            # 预测
+            predict_result, predict_hm, predict_regs_wh = model(image)
 
-            center_loss = reg_loss(predict_center, center, ind_masks_center)
-            bias_loss = reg_loss(predict_bias, bias, ind_masks_bias)
-            heatmap_loss = focal_loss(predict_hm, hm)
-            finish_loss = cross_entropy_loss(predict_finished, finished)
+            # 提取需要关注点的部分
+            focus_index = result == ACTIONS.index(Actions.Touch.value)
+            hm, regs_wh, ind_masks = hm[focus_index], regs_wh[focus_index], ind_masks[focus_index]
+            predict_hm, predict_regs_wh = predict_hm[focus_index], predict_regs_wh[focus_index]
 
-            # 加权计算
-            loss = center_loss * 0.1 + bias_loss + heatmap_loss + finish_loss
+            # 进行分类损失计算
+            predict_result = predict_result.squeeze(1)
+            loss = cross_entropy_loss(predict_result, result)
+
+            # 如果需要计算 HM
+            if predict_hm.shape[0] > 0:
+                predict_center, predict_bias = torch.split(predict_regs_wh, 2, 1)
+                center, bias = torch.split(regs_wh, 2, 1)
+                ind_masks_center, ind_masks_bias = torch.split(ind_masks, 2, 1)
+
+                center_loss = reg_loss(predict_center, center, ind_masks_center)
+                bias_loss = reg_loss(predict_bias, bias, ind_masks_bias)
+                heatmap_loss = focal_loss(predict_hm, hm)
+
+                # 加权计算
+                loss += center_loss * 0.1 + bias_loss + heatmap_loss
+
             losses.append(float(loss))
 
             # 快乐三步曲
@@ -114,27 +127,38 @@ def train():
         bar = tqdm(valid_loader, 'Validating', ascii=True)
         losses = []
 
-        for image, finished, hm, regs_wh, ind_masks in bar:
-            image, finished, hm = image.to(DEVICE), finished.to(DEVICE), hm.to(DEVICE)
+        for image, result, hm, regs_wh, ind_masks in bar:
+            image, result, hm = image.to(DEVICE), result.to(DEVICE), hm.to(DEVICE)
             regs_wh, ind_masks = regs_wh.to(DEVICE), ind_masks.to(DEVICE)
+            # 预测
+            predict_result, predict_hm, predict_regs_wh = model(image)
 
-            predict_finished, predict_hm, predict_regs_wh = model(image)
-            predict_finished = predict_finished.squeeze(1)
-            predict_center, predict_bias = torch.split(predict_regs_wh, 2, 1)
-            center, bias = torch.split(regs_wh, 2, 1)
-            ind_masks_center, ind_masks_bias = torch.split(ind_masks, 2, 1)
+            # 提取需要关注点的部分
+            focus_index = result == ACTIONS.index(Actions.Touch.value)
+            hm, regs_wh, ind_masks = hm[focus_index], regs_wh[focus_index], ind_masks[focus_index]
+            predict_hm, predict_regs_wh = predict_hm[focus_index], predict_regs_wh[focus_index]
 
-            center_loss = reg_loss(predict_center, center, ind_masks_center)
-            bias_loss = reg_loss(predict_bias, bias, ind_masks_bias)
-            heatmap_loss = focal_loss(predict_hm, hm)
-            finish_loss = cross_entropy_loss(predict_finished, finished)
+            # 进行分类损失计算
+            predict_result = predict_result.squeeze(1)
+            loss = cross_entropy_loss(predict_result, result)
 
-            # 加权计算
-            loss = center_loss * 0.1 + bias_loss + heatmap_loss + finish_loss
+            # 如果需要计算 HM
+            if predict_hm.shape[0] > 0:
+                predict_center, predict_bias = torch.split(predict_regs_wh, 2, 1)
+                center, bias = torch.split(regs_wh, 2, 1)
+                ind_masks_center, ind_masks_bias = torch.split(ind_masks, 2, 1)
+
+                center_loss = reg_loss(predict_center, center, ind_masks_center)
+                bias_loss = reg_loss(predict_bias, bias, ind_masks_bias)
+                heatmap_loss = focal_loss(predict_hm, hm)
+
+                # 加权计算
+                loss += center_loss * 0.1 + bias_loss + heatmap_loss
+
             losses.append(float(loss))
 
             # 计算状态正确率
-            finished_acc = (predict_finished.argmax(1) == finished).sum() / len(finished)
+            finished_acc = (predict_result.argmax(1) == result).sum() / len(result)
 
             lr = optimizer.param_groups[0]['lr']
             bar.set_description("Valid epoch %d, loss %.4f, avg loss %.4f, Finished Acc %.4f, lr %.6f" % (
