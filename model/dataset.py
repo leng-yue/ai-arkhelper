@@ -6,7 +6,7 @@ import cv2
 import numpy as np
 from torch.utils.data import Dataset
 from torchvision import transforms as T
-from base import ACTIONS
+from definition import ACTIONS
 
 
 def gaussian_2d(shape, sigma=1):

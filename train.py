@@ -2,6 +2,7 @@ import torch
 import torchvision.transforms as T
 from torch.nn import SmoothL1Loss, CrossEntropyLoss
 from tqdm import tqdm
+import imgaug.augmenters as iaa
 from torch.utils.data import DataLoader
 
 from model.dataset import ArkDataset
@@ -16,8 +17,16 @@ def train():
     train_set = ArkDataset(
         "records",
         transform=T.Compose([
+            iaa.Sequential([
+                iaa.OneOf([
+                    iaa.GaussianBlur((0, 2.0)),
+                    iaa.AverageBlur((1, 3)),
+                    iaa.MedianBlur((1, 3)),
+                ]),
+                iaa.MultiplyBrightness(mul=(0.65, 1.35)),
+                iaa.AdditiveGaussianNoise(loc=0, scale=(0.0, 0.05*255), per_channel=0.5),
+            ]).augment_image,
             T.ToPILImage(),
-            # T.ColorJitter(brightness=.15, contrast=.15),
             T.Resize((256, 256)),
             T.ToTensor(),
             T.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
@@ -35,10 +44,9 @@ def train():
     )
 
     # import cv2
-    # data = train_set.__getitem__(2)
-    # # .permute(1, 2, 0).detach().numpy()
-    # cv2.imshow("128x128", data['hm'].transpose(1, 2, 0))
-    # cv2.waitKey()
+    # for i in train_set:
+    #     cv2.imshow("viz", (i[0][:3].transpose(1, 2, 0) * [0.229, 0.224, 0.225] + [0.485, 0.456, 0.406]))
+    #     cv2.waitKey(1000)
     # exit()
 
     train_loader = DataLoader(dataset=train_set, batch_size=8, shuffle=True, num_workers=2)

@@ -2,7 +2,7 @@ import torch
 import numpy as np
 from torch import nn
 
-from base import ACTIONS
+from definition import ACTIONS
 from efficientnet_pytorch import EfficientNet
 
 

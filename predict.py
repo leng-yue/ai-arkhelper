@@ -2,7 +2,7 @@ import numpy as np
 import torch
 from torch.nn.functional import avg_pool2d
 
-from base import ACTIONS
+from definition import ACTIONS
 from model.net import ArkNet
 import torchvision.transforms as T
 
