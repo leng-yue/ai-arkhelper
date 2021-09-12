@@ -131,7 +131,7 @@ class ArkDataset(Dataset):
         temp = path.name.replace(".jpg", "").split("_")[:-1]
         action_idx = ACTIONS.index(temp[1])
         task_idx = TASKS.index(temp[0])
-        boxes = temp[21:]
+        boxes = temp[2:]
 
         raw_h, raw_w = image.shape[:2]
         image = self.transform(image)  # 1, H, W

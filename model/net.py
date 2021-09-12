@@ -126,7 +126,7 @@ class ArkNet(nn.Module):
         self.up2 = UpSampleModule(wide, wide, kernel_size=2, stride=2, mode=up_mode)  # s4
         self.detect = DetectModule(wide)
 
-        self.finished = nn.Sequential(
+        self.action = nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)),
             nn.Flatten(),
             nn.Linear(1280, len(ACTIONS))
@@ -146,7 +146,7 @@ class ArkNet(nn.Module):
 
     def forward(self, x):
         s16, s24, s40, s112, _, feature = self.backbone.extract_endpoints(x).values()
-        finished = self.finished(feature)
+        action = self.action(feature)
 
         s112 = self.conv3(s112)
         s40 = self.up0(s112) + self.connect2(s40)
@@ -159,4 +159,4 @@ class ArkNet(nn.Module):
 
         center = center.sigmoid()
         box = torch.exp(box)
-        return finished, center, box
+        return action, center, box
