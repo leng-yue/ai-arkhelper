@@ -18,12 +18,22 @@ def visualize_frame(frame, point):
 
 if __name__ == "__main__":
     predictor = Predictor()
-    client = scrcpy.Client(max_width=1280, max_fps=10)
+    client = scrcpy.Client(max_width=1280, max_fps=3)
     client.start(True)
 
-    # tasks = [Tasks.RecentBattle, Tasks.Battle, Tasks.Home]
-    # tasks = [Actions.Home, Actions.Email, Actions.RecentBattle, Actions.Battle, Actions.Home]
-    tasks = [Tasks.RecentBattle, Tasks.Battle, Tasks.Home]
+    tasks = [
+        Tasks.Home,
+        Tasks.Email,
+        Tasks.Home,
+        Tasks.FriendFoundation,
+        Tasks.Home,
+        Tasks.RecentBattle
+    ] + [Tasks.Battle] * 6 + [
+        Tasks.Home,
+        Tasks.Task,
+        Tasks.Home
+    ]
+
     last_frame: Optional[np.ndarray] = None
     finish_count = 0
 
@@ -40,11 +50,9 @@ if __name__ == "__main__":
             finish_count += 1
             if finish_count >= 3:
                 tasks.pop(0)
-            time.sleep(1)
         else:
             finish_count = 0
-        if action == Actions.Touch and score > 0.1:
+        if action == Actions.Touch:
             print(tasks[0], action, score, (x, y))
             client.control.touch(x, y, scrcpy.ACTION_DOWN)
             client.control.touch(x, y, scrcpy.ACTION_UP)
-            time.sleep(1)
