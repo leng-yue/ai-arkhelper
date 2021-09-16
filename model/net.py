@@ -111,10 +111,10 @@ class ArkNet(nn.Module):
     def __init__(self, wide=64, has_ext=True, up_mode="UCBA"):
         super(ArkNet, self).__init__()
 
-        num_layers = len(TASKS) + 3
         c0, c1, c2 = [16, 24, 40]
-        conv3_dim = 112
-        self.backbone = EfficientNet.from_pretrained('efficientnet-b0', in_channels=num_layers)
+        embedding_cls = 32
+        conv3_dim = 112 + embedding_cls
+        self.backbone = EfficientNet.from_pretrained('efficientnet-b0')
 
         self.conv3 = CBAModule(conv3_dim, wide, kernel_size=1, stride=1, padding=0, bias=False)  # s32
         self.connect0 = CBAModule(c0, wide, kernel_size=1, stride=2)  # s4
@@ -126,12 +126,18 @@ class ArkNet(nn.Module):
         self.up2 = UpSampleModule(wide, wide, kernel_size=2, stride=2, mode=up_mode)  # s4
         self.detect = DetectModule(wide)
 
+        self.task_embedding = nn.Sequential(
+            nn.Linear(len(TASKS), embedding_cls),
+            nn.ReLU()
+        )
+
         self.action = nn.Sequential(
             nn.AdaptiveAvgPool2d((1, 1)),
             nn.Flatten(),
-            nn.Linear(1280, len(ACTIONS))
+            nn.Linear(1280 + embedding_cls, len(TASKS) * len(ACTIONS))
         )
-        self.center = HeadModule(wide, 1, has_ext=has_ext)
+
+        self.center = HeadModule(wide, len(TASKS), has_ext=has_ext)
         self.box = HeadModule(wide, 4, has_ext=has_ext)
 
         self.init_weights()
@@ -144,8 +150,12 @@ class ArkNet(nn.Module):
         self.center.init_normal(0.001, d)
         self.box.init_normal(0.001, 0)
 
-    def forward(self, x):
+    def forward(self, x, task_encoding):
         s16, s24, s40, s112, _, feature = self.backbone.extract_endpoints(x).values()
+
+        task = self.task_embedding(task_encoding).unsqueeze(2).unsqueeze(3)
+        s112 = torch.cat([s112, task.repeat(1, 1, 16, 16)], 1)
+        feature = torch.cat([feature, task.repeat(1, 1, 8, 8)], 1)
         action = self.action(feature)
 
         s112 = self.conv3(s112)

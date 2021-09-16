@@ -129,8 +129,10 @@ class ArkDataset(Dataset):
 
         # 解析信息
         temp = path.name.replace(".jpg", "").split("_")[:-1]
-        action_idx = ACTIONS.index(temp[1])
         task_idx = TASKS.index(temp[0])
+        action_idx = task_idx * len(ACTIONS) + ACTIONS.index(temp[1])
+        task_encoding = np.zeros(len(TASKS)).astype(np.float32)
+        task_encoding[task_idx] = 1
         boxes = temp[2:]
 
         raw_h, raw_w = image.shape[:2]
@@ -138,15 +140,15 @@ class ArkDataset(Dataset):
         new_h, new_w = image.shape[1:]
 
         # OneHot 编码操作空间
-        actions = np.zeros((len(TASKS), new_h, new_w))
-        actions[task_idx] = 1
-        image = np.concatenate([image, actions]).astype(np.float32)
+        # actions = np.zeros((len(TASKS), new_h, new_w))
+        # actions[task_idx] = 1
+        # image = np.concatenate([image, actions]).astype(np.float32)
 
         # 计算生成 HeatMap
         output_h = image.shape[1] // self.down_ratio
         output_w = image.shape[2] // self.down_ratio
 
-        hm = np.zeros((1, output_h, output_w), dtype=np.float32)
+        hm = np.zeros((len(TASKS), output_h, output_w), dtype=np.float32)
         regs_wh = np.zeros((4, output_h, output_w), dtype=np.float32)  # bias + width / height
         ind_masks = np.zeros((4, output_h, output_w), dtype=np.float32)
 
@@ -169,7 +171,7 @@ class ArkDataset(Dataset):
             icx = int(real_cx)
             icy = int(real_cy)
 
-            draw_gaussian(hm[0], (icx, icy), radius)
+            draw_gaussian(hm[task_idx], (icx, icy), radius)
 
             range_expand = radius
             for cx in range(icx - range_expand, icx + range_expand + 1):
@@ -179,4 +181,4 @@ class ArkDataset(Dataset):
                     ind_masks[:, cy, cx] = 1
                     regs_wh[:, cy, cx] = [cx - real_cx, cy - real_cy, w, h]
 
-        return image, action_idx, hm, regs_wh, ind_masks
+        return image, task_encoding, action_idx, hm, regs_wh, ind_masks

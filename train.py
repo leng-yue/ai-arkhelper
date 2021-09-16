@@ -55,8 +55,12 @@ def train():
     #     cv2.waitKey(1000)
     # exit()
 
-    train_loader = DataLoader(dataset=train_set, batch_size=8, shuffle=True, num_workers=8, pin_memory=True)
-    valid_loader = DataLoader(dataset=valid_set, batch_size=8, shuffle=True, num_workers=8, pin_memory=True)
+    train_loader = DataLoader(
+        dataset=train_set, batch_size=16, shuffle=True, num_workers=8, pin_memory=True, persistent_workers=True
+    )
+    valid_loader = DataLoader(
+        dataset=valid_set, batch_size=8, shuffle=True, num_workers=8, pin_memory=True, persistent_workers=True
+    )
 
     model = ArkNet()
     model = model.to(DEVICE)
@@ -73,16 +77,18 @@ def train():
         model.train()
         bar = tqdm(train_loader, 'Training', ascii=True)
         losses = []
+        correct = total = 0
 
-        for image, result, hm, regs_wh, ind_masks in bar:
+        for image, task_encoding, result, hm, regs_wh, ind_masks in bar:
             image, result, hm = image.to(DEVICE), result.to(DEVICE), hm.to(DEVICE)
+            task_encoding = task_encoding.to(DEVICE)
             regs_wh, ind_masks = regs_wh.to(DEVICE), ind_masks.to(DEVICE)
 
             # 预测
-            predict_result, predict_hm, predict_regs_wh = model(image)
+            predict_action, predict_hm, predict_regs_wh = model(image, task_encoding)
 
             # 进行分类损失计算
-            predict_result = predict_result.squeeze(1)
+            predict_action = predict_action.squeeze(1)
             predict_center, predict_bias = torch.split(predict_regs_wh, 2, 1)
             center, bias = torch.split(regs_wh, 2, 1)
             ind_masks_center, ind_masks_bias = torch.split(ind_masks, 2, 1)
@@ -90,14 +96,15 @@ def train():
             center_loss = reg_loss(predict_center, center, ind_masks_center)
             bias_loss = reg_loss(predict_bias, bias, ind_masks_bias)
             heatmap_loss = focal_loss(predict_hm, hm)
-            action_loss = cross_entropy_loss(predict_result, result)
+            action_loss = cross_entropy_loss(predict_action, result)
 
             # 加权计算
-            loss = center_loss * 0.1 + bias_loss + heatmap_loss + action_loss
+            loss = center_loss * 0.1 + bias_loss + heatmap_loss + action_loss * 2
             losses.append(float(loss))
 
             # 计算状态正确率
-            action_acc = (predict_result.argmax(1) == result).sum() / len(result)
+            correct += (predict_action.argmax(1) == result).sum()
+            total += result.shape[0]
 
             # 快乐三步曲
             optimizer.zero_grad()
@@ -106,7 +113,7 @@ def train():
 
             lr = optimizer.param_groups[0]['lr']
             bar.set_description("Train epoch %d, loss %.4f, avg loss %.4f, Action Acc %.4f, lr %.6f" % (
-                epoch, float(loss), sum(losses) / len(losses), action_acc, lr
+                epoch, float(loss), sum(losses) / len(losses), correct / total, lr
             ))
 
             # predict_hm_slice = predict_hm[0].cpu().squeeze().detach().numpy()
@@ -117,15 +124,18 @@ def train():
         model.eval()
         bar = tqdm(valid_loader, 'Validating', ascii=True)
         losses = []
+        actions = []
+        correct = total = 0
 
-        for image, result, hm, regs_wh, ind_masks in bar:
+        for image, task_encoding, result, hm, regs_wh, ind_masks in bar:
             image, result, hm = image.to(DEVICE), result.to(DEVICE), hm.to(DEVICE)
+            task_encoding = task_encoding.to(DEVICE)
             regs_wh, ind_masks = regs_wh.to(DEVICE), ind_masks.to(DEVICE)
             # 预测
-            predict_result, predict_hm, predict_regs_wh = model(image)
+            predict_action, predict_hm, predict_regs_wh = model(image, task_encoding)
 
             # 进行分类损失计算
-            predict_result = predict_result.squeeze(1)
+            predict_action = predict_action.squeeze(1)
             predict_center, predict_bias = torch.split(predict_regs_wh, 2, 1)
             center, bias = torch.split(regs_wh, 2, 1)
             ind_masks_center, ind_masks_bias = torch.split(ind_masks, 2, 1)
@@ -133,18 +143,20 @@ def train():
             center_loss = reg_loss(predict_center, center, ind_masks_center)
             bias_loss = reg_loss(predict_bias, bias, ind_masks_bias)
             heatmap_loss = focal_loss(predict_hm, hm)
-            action_loss = cross_entropy_loss(predict_result, result)
+            action_loss = cross_entropy_loss(predict_action, result)
 
             # 加权计算
-            loss = center_loss * 0.1 + bias_loss + heatmap_loss + action_loss
+            loss = center_loss * 0.1 + bias_loss + heatmap_loss + action_loss * 2
 
             losses.append(float(loss))
 
             # 计算状态正确率
-            action_acc = (predict_result.argmax(1) == result).sum() / len(result)
+            correct += (predict_action.argmax(1) == result).sum()
+            total += result.shape[0]
+
             lr = optimizer.param_groups[0]['lr']
             bar.set_description("Valid epoch %d, loss %.4f, avg loss %.4f, Action Acc %.4f, lr %.6f" % (
-                epoch, float(loss), sum(losses) / len(losses), action_acc, lr
+                epoch, float(loss), sum(losses) / len(losses), correct / total, lr
             ))
 
             # predict_hm_slice = predict_hm[0].cpu().squeeze().detach().numpy()
