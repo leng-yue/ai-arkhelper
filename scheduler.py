@@ -18,7 +18,7 @@ def visualize_frame(frame, point):
 
 if __name__ == "__main__":
     predictor = Predictor()
-    client = scrcpy.Client(max_width=1280, max_fps=3)
+    client = scrcpy.Client(max_width=1280, max_fps=10)
     client.start(True)
 
     tasks = [
@@ -26,6 +26,8 @@ if __name__ == "__main__":
         Tasks.Email,
         Tasks.Home,
         Tasks.FriendFoundation,
+        Tasks.Home,
+        Tasks.Shopping,
         Tasks.Home,
         Tasks.RecentBattle
     ] + [Tasks.Battle] * 6 + [
@@ -56,3 +58,5 @@ if __name__ == "__main__":
             print(tasks[0], action, score, (x, y))
             client.control.touch(x, y, scrcpy.ACTION_DOWN)
             client.control.touch(x, y, scrcpy.ACTION_UP)
+            time.sleep(1)
+        time.sleep(0.3)
